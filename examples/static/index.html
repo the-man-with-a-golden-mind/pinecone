@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pinecone Framework Demo</title>
+  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    h1 { color: #2d5016; }
+    h2 { color: #4a7c2c; border-bottom: 2px solid #4a7c2c; padding-bottom: 10px; }
+    input, button {
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #4a7c2c;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover { background: #2d5016; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #e8f5e9;
+      color: #2d5016;
+      border-radius: 12px;
+      font-weight: bold;
+    }
+    #status {
+      color: #666;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌲 Pinecone Framework Demo</h1>
+
+  <div class="card">
+    <h2>Datastar + SSE Demo</h2>
+    <div data-store="{count: 0, text: ''}">
+      <!-- Connect to SSE -->
+      <div data-on-load="@sse('/sse')"></div>
+
+      <p>Type something:</p>
+      <input
+        type="text"
+        placeholder="Start typing..."
+        data-bind:text
+        data-on:input="@post('/type')"
+        style="width: 100%; margin-bottom: 10px;"
+      />
+
+      <p>Character count: <span class="badge" data-text="$count"></span></p>
+      <p id="status">Ready</p>
+
+      <button data-on:click="@get('/inc')">Increment Counter</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>REST API Examples</h2>
+    <p>Try these endpoints:</p>
+    <ul>
+      <li><a href="/api/hello" target="_blank">GET /api/hello</a></li>
+      <li><a href="/api/user/123" target="_blank">GET /api/user/123</a></li>
+      <li><a href="/api/posts/456/comments/789" target="_blank">GET /api/posts/456/comments/789</a></li>
+    </ul>
+
+    <h3>Test POST /api/echo</h3>
+    <button onclick="testEcho()">Send Test JSON</button>
+    <pre id="echo-result" style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 10px;"></pre>
+  </div>
+
+  <script>
+    async function testEcho() {
+      const result = document.getElementById('echo-result');
+      result.textContent = 'Sending...';
+
+      try {
+        const response = await fetch('/api/echo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: 'Hello from browser!',
+            timestamp: Date.now()
+          })
+        });
+
+        const data = await response.json();
+        result.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        result.textContent = 'Error: ' + err.message;
+      }
+    }
+  </script>
+</body>
+</html>

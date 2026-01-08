@@ -1,0 +1,19 @@
+((author "Michal Majchrzak")
+ (synopsis "Lightweight web framework for Chicken Scheme with SSE support")
+ (license "MIT")
+ (version "0.2.0")
+ (category web)
+ (dependencies spiffy
+               intarweb
+               uri-common
+               srfi-1
+               srfi-13
+               srfi-18
+               srfi-69
+               medea)
+ (components
+  (extension core (csc-options "-O3"))
+  (extension sse (csc-options "-O3"))
+  (extension middleware (csc-options "-O3"))
+  (extension app (csc-options "-O3"))
+  (extension pinecone (csc-options "-O3"))))
