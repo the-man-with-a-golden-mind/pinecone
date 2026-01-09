@@ -8,7 +8,10 @@
    sse-manager-broadcast!
    sse-manager-handler
    send-sse
-   sse-comment)
+   sse-comment
+   MAX-QUEUE-SIZE
+   MAX-CLIENT-LIFETIME
+   PING-INTERVAL)
 
 (import scheme
         (chicken base)
@@ -21,7 +24,11 @@
         spiffy
         intarweb)
 
-;; [cały kod bez zmian]
+;; Configuration constants
+(define MAX-QUEUE-SIZE 100)        ; Max events in queue per client
+(define MAX-CLIENT-LIFETIME 3600)  ; Max connection time (1 hour)
+(define PING-INTERVAL 10)          ; Ping every 10 seconds (faster detection)
+
 (define-record sse-manager mutex clients)
 
 (define (make-client)
@@ -49,8 +56,16 @@
   (print "SSE client unregistered. Total: " (length (sse-manager-clients mgr))))
 
 (define (enqueue! c chunk)
+  "Add chunk to client queue with size limit to prevent memory leaks"
   (mutex-lock! (client-mx c))
-  (client-q-set! c (append (client-q c) (list chunk)))
+  (let ((q (client-q c)))
+    (if (>= (length q) MAX-QUEUE-SIZE)
+        ;; Queue full - drop oldest event
+        (begin
+          (client-q-set! c (append (cdr q) (list chunk)))
+          (print "WARNING: Client queue full, dropping oldest event"))
+        ;; Queue has space - append normally
+        (client-q-set! c (append q (list chunk)))))
   (mutex-unlock! (client-mx c)))
 
 (define (try-dequeue! c)
@@ -73,6 +88,7 @@
     (for-each (lambda (c) (enqueue! c chunk)) cs)))
 
 (define (sse-write-raw! out s)
+  "Write to SSE stream, return #f on error (closed connection)"
   (handle-exceptions _ #f
     (begin
       (display s out)
@@ -99,7 +115,10 @@
           (flush-output out))))))
 
 (define (sse-manager-handler mgr)
-  "Create a handler for permanent SSE connections"
+  "Create a handler for permanent SSE connections
+   - Pings every PING-INTERVAL seconds to detect closed connections
+   - Disconnects after MAX-CLIENT-LIFETIME
+   - Queue limited to MAX-QUEUE-SIZE"
   (lambda ()
     (print "SSE connection opened")
     (with-headers
@@ -113,23 +132,39 @@
 
           (sse-write-raw! out (sse-comment "connected"))
 
-          (let loop ((last-ping (current-seconds)))
-            (let ((chunk (try-dequeue! c)))
-              (cond
-                (chunk
-                 (if (sse-write-raw! out chunk)
-                     (loop last-ping)
-                     (sse-manager-unregister! mgr c)))
-                (else
-                 (let ((now (current-seconds)))
-                   (if (>= (- now last-ping) 15)
-                       (if (sse-write-raw! out (sse-comment "ping"))
-                           (begin
-                             (thread-sleep! 0.05)
-                             (loop now))
-                           (sse-manager-unregister! mgr c))
-                       (begin
-                         (thread-sleep! 0.05)
-                         (loop last-ping)))))))))))))
+          (let loop ((last-ping (current-seconds)) (start-time (current-seconds)))
+            (let ((chunk (try-dequeue! c))
+                  (now (current-seconds)))
+
+              ;; Disconnect after MAX-CLIENT-LIFETIME
+              (if (>= (- now start-time) MAX-CLIENT-LIFETIME)
+                  (begin
+                    (print "SSE: Client lifetime exceeded, disconnecting")
+                    (sse-manager-unregister! mgr c))
+
+                  (cond
+                    ;; Got a chunk to send
+                    (chunk
+                     (if (sse-write-raw! out chunk)
+                         (loop now start-time)  ; Update last-ping when we write
+                         (begin
+                           (print "SSE: Write failed, client disconnected")
+                           (sse-manager-unregister! mgr c))))
+
+                    ;; No chunk - check if we need to ping
+                    (else
+                     (if (>= (- now last-ping) PING-INTERVAL)
+                         ;; Time to ping
+                         (if (sse-write-raw! out (sse-comment "ping"))
+                             (begin
+                               (thread-sleep! 0.05)
+                               (loop now start-time))
+                             (begin
+                               (print "SSE: Ping failed, client disconnected")
+                               (sse-manager-unregister! mgr c)))
+                         ;; Not time to ping yet
+                         (begin
+                           (thread-sleep! 0.05)
+                           (loop last-ping start-time)))))))))))))
 
 ) ; end module
