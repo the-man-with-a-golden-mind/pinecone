@@ -55,18 +55,19 @@ This will compile Pinecone with `-O3` and install the exported modules.
 ## Quick Start
 
 ```
-(import pinecone)
+(import scheme pinecone)
 
 (define app
   (create-app
-    #:port 8080
-    #:root-path "."))
+    port: 8080
+    root-path: "./static"))
 
-(app-add-route! app "GET" '("health")
+(app-add-route! app 'GET '("health")
   (lambda (req)
-    (send-json 200 '((ok . #t)))))
+    (send-json (list (cons 'ok  #t)))))
 
 (app-start! app)
+
 ```
 
 Open:
@@ -101,10 +102,24 @@ Routes are defined by:
 Example:
 
 ```
-(app-add-route! app "GET" '("users" ":id")
+(import scheme pinecone)
+
+(define app
+  (create-app
+    port: 8080
+    root-path: "./static"))
+
+(app-add-route! app 'GET '("health")
   (lambda (req)
-    (let ((params (extract-params req)))
-      (send-json 200 params))))
+    (send-json (list (cons 'ok  #t)))))
+
+(app-add-route! app 'GET '("users" ":id")
+  (lambda (params)
+    (let ((user-id (alist-ref 'id params)))
+      (send-json (list  (cons 'id user-id))))))
+
+(app-start! app)
+
 ```
 
 Routing helpers live in **core.scm**.
@@ -128,6 +143,8 @@ Middleware is typically used for:
 * static files
 
 Implementation lives in **middleware.scm**.
+
+You can also find middleware example in examples.
 
 ---
 

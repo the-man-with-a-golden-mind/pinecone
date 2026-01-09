@@ -3,9 +3,6 @@
         (chicken time)
         pinecone)
 
-;; NIE używaj set-pseudo-random-seed! - powoduje segfault
-;; Random i tak działa dla session IDs
-
 ;; Create app
 (define app (create-app port: 8080 root-path: "./static"))
 
