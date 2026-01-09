@@ -96,7 +96,7 @@
   (server-port (app-port app))
   (root-path (app-root-path app))
   (vhost-map `((".*" . ,(app-handler app))))
-  (set-gc-report! #t)
+  (set-gc-report! #f)
   (gc #t)
   (print "==============================================")
   (print "🌲 Pinecone server starting on port " (app-port app))
